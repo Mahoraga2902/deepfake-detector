@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Deepfake Detection (Image & Video)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter&display=swap");
+    body { font-family: "Inter", sans-serif; }
+  </style>
+</head>
+<body class="bg-[#0b1220] text-white min-h-screen p-5">
+  <main class="max-w-xl mx-auto space-y-6">
+    <header>
+      <h1 class="text-3xl mb-1">AI Deepfake Detection</h1>
+      <p class="text-[#93a3b8]">Upload an <b>image</b> or a <b>video</b> to classify as <b>Real</b> or <b>Fake</b>.</p>
+    </header>
+
+    <section class="bg-[#141c2f] rounded-xl p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <button id="pickImage" class="bg-[#2563EB] px-4 py-2 rounded-md">Select Image</button>
+        <button id="pickVideo" class="bg-[#334155] px-4 py-2 rounded-md">Select Video</button>
+      </div>
+      <input type="file" id="fileInputImage" accept="image/*" style="display:none;" />
+      <input type="file" id="fileInputVideo" accept="video/*" style="display:none;" />
+      <p id="fileName" class="text-[#c2cbe0]"></p>
+      <div id="preview" class="mt-3"></div>
+    </section>
+
+    <section>
+      <button id="analyzeBtn" class="w-full bg-white text-black py-2 rounded-md mb-3">Analyze</button>
+      <p id="prediction" class="text-lg font-bold"></p>
+      <p id="details" class="text-sm text-[#93a3b8]"></p>
+    </section>
+  </main>
+
+  <script>
+    const pickImage = document.getElementById("pickImage");
+    const pickVideo = document.getElementById("pickVideo");
+    const fileInputImage = document.getElementById("fileInputImage");
+    const fileInputVideo = document.getElementById("fileInputVideo");
+    const fileName = document.getElementById("fileName");
+    const prediction = document.getElementById("prediction");
+    const details = document.getElementById("details");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const preview = document.getElementById("preview");
+
+    let selectedFile = null;
+    let selectedKind = null;
+
+    pickImage.onclick = () => fileInputImage.click();
+    pickVideo.onclick = () => fileInputVideo.click();
+
+    fileInputImage.addEventListener("change", () => {
+      if (fileInputImage.files.length > 0) {
+        selectedFile = fileInputImage.files[0];
+        selectedKind = "image";
+        fileName.textContent = "Selected image: " + selectedFile.name;
+        preview.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(selectedFile);
+        img.className = "mt-2 max-h-64 rounded-lg";
+        preview.appendChild(img);
+      }
+    });
+
+    fileInputVideo.addEventListener("change", () => {
+      if (fileInputVideo.files.length > 0) {
+        selectedFile = fileInputVideo.files[0];
+        selectedKind = "video";
+        fileName.textContent = "Selected video: " + selectedFile.name;
+        preview.innerHTML = "";
+        const vid = document.createElement("video");
+        vid.src = URL.createObjectURL(selectedFile);
+        vid.controls = true;
+        vid.className = "mt-2 max-h-64 rounded-lg";
+        preview.appendChild(vid);
+      }
+    });
+
+    analyzeBtn.addEventListener("click", async () => {
+      if (!selectedFile) {
+        alert("Please select an image or a video first!");
+        return;
+      }
+      prediction.textContent = "Analyzing...";
+      details.textContent = "";
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      try {
+        let endpoint = selectedKind === "video" ? "/predict_video" : "/predict";
+        const response = await fetch(endpoint, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+
+        if (data.error) {
+          prediction.textContent = "Error: " + data.error;
+          details.textContent = data.details || "";
+        } else {
+          prediction.textContent = "Prediction: " + data.label + " (" + Math.round((data.confidence||0)*100) + "%)";
+          if (selectedKind === "video") {
+            details.textContent = "Frames sampled: " + (data.frames_sampled||0) + 
+                                  (data.estimated_duration_sec ? " • Duration ≈ " + data.estimated_duration_sec + "s" : "") +
+                                  (data.video_fps ? " • FPS: " + data.video_fps : "");
+          }
+        }
+      } catch (err) {
+        prediction.textContent = "Request failed: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

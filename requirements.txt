@@ -1,0 +1,5 @@
+flask
+tensorflow
+opencv-python
+werkzeug
+numpy
