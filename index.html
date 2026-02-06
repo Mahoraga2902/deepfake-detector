@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AI Deepfake Detection</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg1: #071126;
+      --bg2: #071f2f;
+      --card: rgba(255,255,255,0.04);
+      --muted: #9fb0c7;
+      --accent: #6d28d9;
+      --accent-2: #06b6d4;
+      --danger: #ef4444;
+      --success: #10b981;
+      --glass: rgba(255,255,255,0.03);
+    }
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+    body{
+      background: linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:#e6f0f6;
+      -webkit-font-smoothing:antialiased;
+    }
+    .container{max-width:1100px;margin:0 auto;padding:28px;}
+
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+    .brand{display:flex;gap:14px;align-items:center}
+    .logo{
+      width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#4f46e5);
+      display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:20px;box-shadow:0 10px 30px rgba(13,20,40,0.6);
+    }
+    h1{margin:0;font-size:24px;font-weight:700}
+    p.lead{margin:0;color:var(--muted);font-size:14px}
+
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:20px;}
+    @media (max-width:920px){ .grid{grid-template-columns:1fr;} .right-col{order:2} }
+
+    .card{
+      background:var(--card);
+      border-radius:14px;
+      padding:18px;
+      box-shadow:0 6px 30px rgba(3,8,15,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+    }
+
+    .uploader{
+      border:2px dashed rgba(255,255,255,0.04);
+      padding:18px;border-radius:12px;
+      display:flex;flex-direction:column;gap:12px;align-items:stretch
+    }
+    .uploader.dragover{
+      border-color:rgba(109,40,217,0.9);
+      background:linear-gradient(180deg, rgba(79,70,229,0.03), transparent);
+    }
+
+    .controls{display:flex;gap:10px;align-items:center}
+
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px;border:none;cursor:pointer;font-weight:600;
+      background:linear-gradient(90deg,#fff,#f0f0f0);
+      color:#071126;
+      box-shadow:0 6px 18px rgba(7,17,38,0.5);
+    }
+    .btn.secondary{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04);box-shadow:none}
+    .small{font-size:13px;padding:7px 10px;border-radius:8px}
+
+    .meta{color:var(--muted);font-size:13px}
+    .error{color:#ffb4b4;font-weight:600;font-size:14px}
+
+    .preview-wrap{display:flex;gap:14px;align-items:flex-start}
+    .video-thumb{
+      width:180px;height:320px;border-radius:12px;overflow:hidden;background:#000;
+      box-shadow:0 6px 18px rgba(2,6,10,0.6);border:1px solid rgba(255,255,255,0.03);
+      display:flex;align-items:center;justify-content:center
+    }
+    .video-thumb video{width:100%;height:100%;object-fit:cover;display:block}
+
+    .right-card{position:sticky;top:28px}
+    .big{font-size:28px;font-weight:700;margin-bottom:6px}
+
+    .prob-row{margin-top:14px}
+    .prob-val{font-size:20px;font-weight:700}
+    .prob-bar{height:18px;background:rgba(255,255,255,0.06);border-radius:12px;overflow:hidden;margin-top:8px}
+    .prob-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--success),var(--accent));transition:width .7s ease,background .7s ease}
+
+    .spinner{
+      width:28px;height:28px;border-radius:50%;
+      border:4px solid rgba(255,255,255,0.1);
+      border-top-color:var(--accent);
+      animation:spin 1s linear infinite;display:inline-block
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    footer{margin-top:26px;color:var(--muted);font-size:13px;text-align:center}
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+  <header>
+    <div class="brand">
+      <div class="logo">DF</div>
+      <div>
+        <h1>AI Deepfake Detection</h1>
+        <p class="lead">Upload a short video — model checks temporal consistency to detect deepfakes.</p>
+      </div>
+    </div>
+    <div><div class="meta">Transformer + CNN model</div></div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT COLUMN -->
+    <div class="left-col">
+
+      <div class="card">
+        <div class="uploader" id="dropzone">
+
+          <div style="display:flex;justify-content:space-between">
+            <div style="font-weight:700">Drop video here</div>
+            <div class="meta">Max 30MB</div>
+          </div>
+
+          <input id="videoInput" type="file" accept="video/*" style="display:none"/>
+
+          <div class="controls">
+            <label class="btn" for="videoInput">📁 Choose File</label>
+            <button id="analyzeBtn" class="btn secondary small">Analyze</button>
+            <div style="flex:1"></div>
+            <div id="statusText" class="meta">No file selected</div>
+          </div>
+
+          <div id="previewContainer" style="display:none;">
+            <div class="preview-wrap">
+              <div class="video-thumb" id="thumbWrap"></div>
+              <div style="flex:1">
+                <div style="font-weight:700" id="fileName">—</div>
+                <div class="meta" id="fileMeta">—</div>
+                <div id="errorBox" class="error" style="display:none;margin-top:10px"></div>
+              </div>
+            </div>
+
+            <!-- Representative frame area -->
+            <div id="modelFrameWrap" style="display:none;margin-top:16px;">
+              <div style="font-weight:600;margin-bottom:6px;color:#cbd5e1">Representative frame used by model</div>
+              <img id="frameImg" src="" style="max-width:260px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 6px 18px rgba(0,0,0,0.5)" />
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <div style="height:20px"></div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">About</h3>
+        <p class="meta">
+          Your video is sampled at fixed intervals, extracted using a CNN, then evaluated by a Transformer that analyzes temporal patterns common in deepfakes.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+      <div class="card right-card">
+
+        <div class="big">Prediction</div>
+        <div class="meta">Model label & confidence</div>
+
+        <div style="height:12px"></div>
+
+        <div style="display:flex;align-items:center;gap:12px">
+          <div id="loader" style="display:none"><span class="spinner"></span></div>
+          <div id="resultLabel" style="font-size:20px;font-weight:800">—</div>
+          <div style="flex:1"></div>
+          <div id="rawProb" class="meta">—</div>
+        </div>
+
+        <div class="prob-row">
+          <div class="prob-val" id="probPercent">—</div>
+          <div class="prob-bar"><div class="prob-fill" id="probFill"></div></div>
+        </div>
+
+        <div id="serverMessage" class="error" style="display:none;margin-top:10px"></div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <footer>Built with ❤️ for ethical AI deepfake analysis</footer>
+
+</div>
+
+<script>
+let selectedFile = null;
+
+// UI elements
+const videoInput = document.getElementById('videoInput');
+const dropzone = document.getElementById('dropzone');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const previewContainer = document.getElementById('previewContainer');
+const thumbWrap = document.getElementById('thumbWrap');
+const fileNameEl = document.getElementById('fileName');
+const fileMeta = document.getElementById('fileMeta');
+const statusText = document.getElementById('statusText');
+const errorBox = document.getElementById('errorBox');
+const resultLabel = document.getElementById('resultLabel');
+const loader = document.getElementById('loader');
+const rawProb = document.getElementById('rawProb');
+const probFill = document.getElementById('probFill');
+const probPercent = document.getElementById('probPercent');
+const serverMessage = document.getElementById('serverMessage');
+const modelFrameWrap = document.getElementById('modelFrameWrap');
+const frameImg = document.getElementById('frameImg');
+
+// --- HYSTERESIS / STABILITY state ---
+let lastShownProb = null;   // last displayed probability (0..1)
+let lastShownLabel = null;  // last displayed label 'REAL'|'FAKE'|'UNCERTAIN'
+
+// drag & drop
+['dragenter','dragover'].forEach(ev => {
+  dropzone.addEventListener(ev, e => {
+    e.preventDefault(); dropzone.classList.add('dragover');
+  });
+});
+['dragleave','drop'].forEach(ev => {
+  dropzone.addEventListener(ev, e => {
+    e.preventDefault(); dropzone.classList.remove('dragover');
+  });
+});
+dropzone.addEventListener('drop', e =>{
+  if (e.dataTransfer.files.length > 0) selectFile(e.dataTransfer.files[0]);
+});
+
+videoInput.addEventListener('change',()=>{
+  if (videoInput.files.length > 0) selectFile(videoInput.files[0]);
+});
+
+function selectFile(f){
+  selectedFile = f;
+  previewContainer.style.display = 'block';
+  thumbWrap.innerHTML = '';
+
+  const url = URL.createObjectURL(f);
+  const v = document.createElement('video');
+  v.src = url; v.controls=true; v.muted=true; v.autoplay=true;
+  v.style.width = "100%"; v.style.height="100%"; v.style.objectFit="cover";
+  thumbWrap.appendChild(v);
+
+  fileNameEl.innerText = f.name;
+  fileMeta.innerText = `${(f.size/1024/1024).toFixed(2)} MB • ${f.type || 'video'}`;
+  statusText.innerText = "Ready";
+
+  modelFrameWrap.style.display = 'none';
+  serverMessage.style.display='none';
+  errorBox.style.display='none';
+}
+
+analyzeBtn.addEventListener('click', analyze);
+
+async function analyze(){
+  if(!selectedFile){
+    errorBox.innerText="Choose a file first";
+    errorBox.style.display='block';
+    return;
+  }
+
+  loader.style.display='inline-block';
+  resultLabel.innerText='Analyzing...';
+  probFill.style.width='0%';
+  serverMessage.style.display='none';
+  modelFrameWrap.style.display='none';
+
+  const fd = new FormData();
+  fd.append('video', selectedFile);
+
+  try {
+    const res = await fetch('/predict',{method:'POST', body: fd});
+    const text = await res.text();
+
+    let data;
+    try { data = JSON.parse(text); }
+    catch(e){
+      serverMessage.innerText = "Bad server response";
+      serverMessage.style.display='block';
+      loader.style.display='none';
+      resultLabel.innerText='Error';
+      return;
+    }
+
+    // server returned JSON (success or error)
+    if(!res.ok){
+      serverMessage.innerText = data.error || "Server Error";
+      serverMessage.style.display='block';
+      loader.style.display='none';
+      resultLabel.innerText='Error';
+      return;
+    }
+
+    // === STABILITY LOGIC START ===
+    const prob = Number(data.fake_prob); // 0..1
+    // settings
+    const LOW_CONF = 0.40;   // <= this => REAL
+    const HIGH_CONF = 0.60;  // >= this => FAKE
+    const DELTA_MIN = 0.05;  // 5% change required to update
+
+    const prevProb = (lastShownProb === null) ? prob : lastShownProb;
+
+    // candidate label
+    let candidateLabel;
+    if (prob <= LOW_CONF) candidateLabel = 'REAL';
+    else if (prob >= HIGH_CONF) candidateLabel = 'FAKE';
+    else candidateLabel = 'UNCERTAIN';
+
+    const probChanged = lastShownProb === null || Math.abs(prob - lastShownProb) >= DELTA_MIN;
+    const labelChanged = lastShownLabel === null || (candidateLabel !== lastShownLabel);
+
+    if (candidateLabel === 'UNCERTAIN') {
+      // prefer to keep previous confirmed label if it existed (REAL/FAKE)
+      if (lastShownLabel && (lastShownLabel === 'REAL' || lastShownLabel === 'FAKE') && !probChanged && !labelChanged) {
+        // keep previous label and only update bar
+        rawProb.innerText = (prob*100).toFixed(2) + '%';
+        probPercent.innerText = (prob*100).toFixed(2) + '%';
+        probFill.style.width = Math.min(100, prob*100) + '%';
+      } else {
+        // show UNCERTAIN
+        resultLabel.innerText = 'UNCERTAIN';
+        rawProb.innerText = (prob*100).toFixed(2) + '%';
+        probPercent.innerText = (prob*100).toFixed(2) + '%';
+        probFill.style.background = 'linear-gradient(90deg,#f59e0b,var(--accent))';
+        probFill.style.width = Math.min(100, prob*100) + '%';
+        lastShownProb = prob;
+        lastShownLabel = 'UNCERTAIN';
+      }
+    } else {
+      // candidate is REAL or FAKE
+      if (probChanged || labelChanged) {
+        resultLabel.innerText = candidateLabel;
+        rawProb.innerText = (prob*100).toFixed(2) + '%';
+        probPercent.innerText = (prob*100).toFixed(2) + '%';
+        let color;
+        if (candidateLabel === 'REAL') color = 'linear-gradient(90deg,var(--success), #60a5fa)';
+        else color = 'linear-gradient(90deg,var(--danger), #6b21a8)';
+        probFill.style.background = color;
+        probFill.style.width = Math.min(100, prob*100) + '%';
+        lastShownProb = prob;
+        lastShownLabel = candidateLabel;
+      } else {
+        // tiny change: update numeric readout and bar, keep label
+        rawProb.innerText = (prob*100).toFixed(2) + '%';
+        probPercent.innerText = (prob*100).toFixed(2) + '%';
+        probFill.style.width = Math.min(100, prob*100) + '%';
+      }
+    }
+    // === STABILITY LOGIC END ===
+
+    // show representative frame if present
+    if(data.frame_base64){
+      modelFrameWrap.style.display='block';
+      frameImg.src = "data:image/jpeg;base64," + data.frame_base64;
+    }
+
+  } catch (e){
+    serverMessage.innerText="Network Error: "+e;
+    serverMessage.style.display='block';
+  }
+
+  loader.style.display='none';
+}
+
+</script>
+</body>
+</html>
